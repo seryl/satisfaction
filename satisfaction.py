@@ -164,7 +164,6 @@ class Company(HtmlResource):
 
     @property
     def topics(self):
-        print self.child_url('topics')
         return iter(self.topic_parser)
 
 
