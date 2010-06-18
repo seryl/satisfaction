@@ -93,13 +93,17 @@ class Resource(object):
 
     def __init__(self, resource_id):
         self.resource_id = resource_id
+        self.sort = None
 
+    @property
     def url(self):
         return self.URL % {'id': self.resource_id}
 
     def child_url(self, resource):
-        return '%s/%s' % (self.url(), resource)
+        return '%s/%s' % (self.url, resource)
 
+    def sort(self):
+        return
 
 class HtmlResource(Resource):
 
@@ -133,9 +137,10 @@ class Company(HtmlResource):
 
     def __init__(self, name):
         self.name = name
-        self.parser = HtmlParser(self.url())
+        self.parser = HtmlParser(self.url)
         self._topic_parser = None
 
+    @property
     def url(self):
         return self.URL % {'id': self.name}
 
@@ -155,7 +160,7 @@ class Company(HtmlResource):
 
     @property
     def topic_count(self):
-        return int(self.topic_parser.document.feed['totalResults'])
+        return int(self.topic_parser.document.feed['opensearch_totalresults'])
 
     @property
     def topics(self):
@@ -169,7 +174,7 @@ class Product(HtmlResource):
 
     def __init__(self, resource_id):
         HtmlResource.__init__(self, resource_id)
-        self.parser = HtmlParser(self.url())
+        self.parser = HtmlParser(self.url)
         self._topic_parser = None
 
     @property
@@ -180,7 +185,7 @@ class Product(HtmlResource):
 
     @property
     def topic_count(self):
-        return int(self.topic_parser.document.feed['totalResults'])
+        return int(self.topic_parser.document.feed['opensearch_totalresults'])
 
     @property
     def topics(self):
@@ -216,7 +221,7 @@ class Topic(AtomResource, Message):
 
     def __init__(self, resource_id):
         AtomResource.__init__(self, resource_id)
-        self.parser = AtomParser(self.url(), Reply, first_child_entry=1)
+        self.parser = AtomParser(self.url, Reply, first_child_entry=1)
 
     @property
     def reply_count(self):
