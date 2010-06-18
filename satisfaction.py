@@ -134,6 +134,7 @@ class Company(HtmlResource):
     def __init__(self, name):
         self.name = name
         self.parser = HtmlParser(self.url())
+        self._topic_parser = None
 
     def url(self):
         return self.URL % {'id': self.name}
@@ -147,8 +148,19 @@ class Company(HtmlResource):
         return iter(HtmlParser(self.child_url('products'), Product))
 
     @property
+    def topic_parser(self):
+        if self._topic_parser is None:
+            self._topic_parser = AtomParser(self.child_url('topics'), Topic)
+        return self._topic_parser
+
+    @property
+    def topic_count(self):
+        return int(self.topic_parser.document.feed['totalResults'])
+
+    @property
     def topics(self):
-        return iter(HtmlParser(self.child_url('topics'), Topic))
+        print self.child_url('topics')
+        return iter(self.topic_parser)
 
 
 class Product(HtmlResource):
@@ -168,7 +180,7 @@ class Product(HtmlResource):
 
     @property
     def topic_count(self):
-        return int(self.topic_parser.document.feed['totalresults'])
+        return int(self.topic_parser.document.feed['totalResults'])
 
     @property
     def topics(self):
