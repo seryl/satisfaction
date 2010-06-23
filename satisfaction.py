@@ -1,6 +1,7 @@
 import datetime
 import time
-import urllib
+from urlparse import urlsplit, parse_qsl
+from urllib import urlopen, urlencode
 
 import feedparser
 import lxml.html
@@ -28,7 +29,7 @@ class Parser(object):
 class HtmlParser(Parser):
 
     def load_document(self):
-        response = urllib.urlopen(self.url)
+        response = urlopen(self.url)
         if response.headers.getheader('status') == '404':
             raise ResourceNotFound(self.url)
         self._document = lxml.html.document_fromstring(response.read())
@@ -49,10 +50,11 @@ class HtmlParser(Parser):
 
 class AtomParser(Parser):
 
-    def __init__(self, url, child_cls, first_child_entry=0):
+    def __init__(self, url, child_cls, first_child_entry=0, sort=None):
         Parser.__init__(self, url, child_cls)
         self.first_child_entry = first_child_entry
         self.page = 1
+        self.sort = sort
 
     def __iter__(self):
         while True:
@@ -67,7 +69,9 @@ class AtomParser(Parser):
         def link_tag_for_type(link):
             return link ['rel'] == page_type
         url = filter(link_tag_for_type, self.document.feed.links)[0]['href']
-        return int(url.split('=')[-1])
+        url_split = urlsplit(url)
+        querystring = parse_qsl(url_split.query)
+        return int(dict(querystring)['page'])
 
     def more_pages_to_load(self):
         return self.page_number('self') < self.page_number('last')
@@ -77,7 +81,11 @@ class AtomParser(Parser):
         self.page += 1
 
     def url_for_page(self):
-        return self.url + '?page=%s' % self.page
+        if self.sort:
+            return self.url + '?' + urlencode(
+                    {'page': self.page, 'sort': self.sort})
+        else:
+            return self.url + '?' + urlencode({'page': self.page})
 
     def load_document(self):
         document = feedparser.parse(self.url_for_page())
@@ -93,7 +101,6 @@ class Resource(object):
 
     def __init__(self, resource_id):
         self.resource_id = resource_id
-        self.sort = None
 
     @property
     def url(self):
@@ -101,9 +108,6 @@ class Resource(object):
 
     def child_url(self, resource):
         return '%s/%s' % (self.url, resource)
-
-    def sort(self):
-        return
 
 class HtmlResource(Resource):
 
@@ -135,8 +139,9 @@ class Company(HtmlResource):
 
     URL = 'http://api.getsatisfaction.com/companies/%(id)s'
 
-    def __init__(self, name):
+    def __init__(self, name, sort=None):
         self.name = name
+        self.sort = sort
         self.parser = HtmlParser(self.url)
         self._topic_parser = None
 
@@ -155,7 +160,8 @@ class Company(HtmlResource):
     @property
     def topic_parser(self):
         if self._topic_parser is None:
-            self._topic_parser = AtomParser(self.child_url('topics'), Topic)
+            self._topic_parser = AtomParser(
+                    self.child_url('topics'), Topic, sort=self.sort)
         return self._topic_parser
 
     @property
